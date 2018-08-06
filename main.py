@@ -2,7 +2,8 @@ import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from widget import Ui_MainWindow
 
-from model import *
+from model import PatternListModel, FileItemModel, file_convert
+from delegate import FileItemDelegate
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -12,21 +13,24 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
 
         pattern_model = PatternListModel()
-        file_input_model = FileInputItemModel()
-        file_output_model = FileOutputItemModel(pattern_model, file_input_model)
+        file_model = FileItemModel(pattern_model)
 
         self.lv_pattern.setAcceptDrops(True)
         self.lv_pattern.setDropIndicatorShown(True)
         self.lv_pattern.setModel(pattern_model)
         self.tv_input.setAcceptDrops(True)
         self.tv_input.setDropIndicatorShown(True)
-        self.tv_input.setModel(file_input_model)
+        self.tv_input.setModel(file_model)
         self.tv_input.setHeaderHidden(True)
-        self.tv_output.setModel(file_output_model)
+        self.tv_input.setRootIsDecorated(False)
+        self.tv_input.setItemDelegate(FileItemDelegate())
+        self.tv_output.setModel(file_model)
         self.tv_output.setHeaderHidden(True)
+        self.tv_output.setRootIsDecorated(False)
+        self.tv_output.setItemDelegate(FileItemDelegate(file_convert))
 
-        file_input_model.progress.connect(self.on_progress)
-        file_output_model.dataChanged.connect(self.on_data_changed)
+        file_model.progress.connect(self.on_progress)
+        file_model.dataChanged.connect(self.on_data_changed)
 
     def on_progress(self, *_):
         pass

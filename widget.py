@@ -11,8 +11,8 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(480, 640)
-        MainWindow.setMinimumSize(QtCore.QSize(480, 640))
+        MainWindow.resize(640, 480)
+        MainWindow.setMinimumSize(QtCore.QSize(640, 480))
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.centralwidget)
@@ -53,7 +53,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "Renamer"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "FBX Renamer"))
         self.btn_start.setText(_translate("MainWindow", "Start"))
         self.actionExit.setText(_translate("MainWindow", "Exit"))
 
