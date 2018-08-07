@@ -42,11 +42,13 @@ def SaveScene(pSdkManager, pScene, pFilename, pFileFormat = -1, pEmbedMedia = Fa
     pSdkManager.GetIOSettings().SetBoolProp(EXP_FBX_ANIMATION, True)
     pSdkManager.GetIOSettings().SetBoolProp(EXP_FBX_GLOBAL_SETTINGS, True)
 
-    if lExporter.Initialize(pFilename, pFileFormat, pSdkManager.GetIOSettings()):
-        lExporter.Export(pScene)
+    result = lExporter.Initialize(pFilename, pFileFormat, pSdkManager.GetIOSettings())
+    if result == True:
+        result = lExporter.Export(pScene)
 
     lExporter.Destroy()
-        
+    return result
+    
 def LoadScene(pSdkManager, pScene, pFileName):
     lImporter = FbxImporter.Create(pSdkManager, "")    
     result = lImporter.Initialize(pFileName, -1, pSdkManager.GetIOSettings())
