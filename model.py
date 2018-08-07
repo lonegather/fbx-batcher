@@ -110,7 +110,7 @@ class PatternListModel(QAbstractListModel):
         patterns = {}
         for i in range(self.rowCount()):
             index = self.index(i)
-            exp = '(?i)%s' % self.data(index, pattern_exp)
+            exp = self.data(index, pattern_exp)
             rpl = self.data(index, pattern_rpl)
             if exp not in patterns:
                 patterns[exp] = rpl
@@ -171,14 +171,14 @@ class FileItemModel(QStandardItemModel):
         self.launched.emit(len(urls))
         return True
 
-    def on_progress(self, file_loaded):
-        take_list = json.loads(file_loaded)
+    def on_progress(self, message):
+        message = json.loads(message)
         root = self.invisibleRootItem()
         total = 0
         for i in range(root.rowCount()):
             item = root.child(i)
-            if item.path == take_list[0]:
-                for take in take_list[1:]:
+            if item.path == message['path']:
+                for take in message['takes']:
                     item.appendRow(TakeItem(take))
                 item.loaded = True
             if item.loaded:
@@ -187,21 +187,25 @@ class FileItemModel(QStandardItemModel):
         self.on_data_changed()
         self.progress.emit(total - self.file_loaded)
 
-    def on_execute_progress(self, path):
+    def on_execute_progress(self, message):
+        message = json.loads(message)
         root = self.invisibleRootItem()
         total = 0
         for i in range(root.rowCount()):
             item = root.child(i)
-            if item.path == path.replace('\n', ''):
+            if item.path == message['path'].replace('\n', ''):
                 item.executed = True
             if item.executed:
+                root.removeRow(i)
                 total += 1
+                break
 
         self.progress.emit(total)
 
     def on_complete(self, *_):
         root = self.invisibleRootItem()
         self.file_loaded = root.rowCount()
+        self.exe_count = 0
         self.complete.emit()
 
     def on_data_changed(self, *_):
@@ -219,7 +223,8 @@ class FileItemModel(QStandardItemModel):
         urls = []
         root = self.invisibleRootItem()
 
-        for i in range(root.rowCount()):
+        i = 0
+        while i < root.rowCount():
             file_item = root.child(i)
             changed = False
             if file_item.path == file_item.path_new:
@@ -231,6 +236,9 @@ class FileItemModel(QStandardItemModel):
                 changed = True
             if changed:
                 urls.append(root.child(i).path)
+                i += 1
+            else:
+                root.removeRow(i)
 
         self.file_thread = FileThread(urls, self.pattern_model.pattern_data())
         self.file_thread.progress.connect(self.on_execute_progress)
@@ -256,7 +264,7 @@ class FileThread(QThread):
             exe = sys.executable.replace('\\', '/')
             mdu = os.path.join(os.path.dirname(__file__), 'utils.py').replace('\\', '/')
             cmd = '"{exe}" "{mdu}" "{url}"'.format(**locals())
-            cmd += ' "%s"' % self.patterns if self.patterns else ''
+            cmd += ' "%s"' % self.patterns.replace('"', '\'') if self.patterns else ''
             process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             msg, err = process.communicate()
 
