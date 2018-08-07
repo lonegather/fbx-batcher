@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import os
 import sys
 import json
 import re
@@ -32,12 +33,13 @@ basic_patterns = {
     '(?i)_stp_': '_STP_',
     '(?i)_fulb_': '_FulB_',
     '(?i)_addfacial_': '_AddFacial_',
-    '^[a-z]|_[a-z]': lambda m: m.group(0).upper()
+    '(?i)^[a-z]|_[a-z]': lambda m: m.group(0).upper()
 }
 
 
 def convert(patterns, text):
-    for pattern in json.loads(patterns):
+    patterns = json.loads(patterns)
+    for pattern in patterns:
         text = re.sub(pattern, patterns[pattern], text, flags=re.IGNORECASE)
 
     for pattern in basic_patterns:
@@ -47,30 +49,33 @@ def convert(patterns, text):
 
 
 if __name__ == '__main__':
-    take_list = [sys.argv[1]]
+    message = {'path': sys.argv[1]}
     (fbx_manager, fbx_scene) = FbxCommon.InitializeSdkObjects()
-    status = FbxCommon.LoadScene(fbx_manager, fbx_scene, take_list[0])
+    status = FbxCommon.LoadScene(fbx_manager, fbx_scene, message['path'])
+
     if status:
         stack_class_id = fbx.FbxAnimStack.ClassId
         stack_object_type = fbx.FbxCriteria.ObjectType(stack_class_id)
         stack_count = fbx_scene.GetSrcObjectCount(stack_object_type)
-        for i in range(stack_count):
-            stack = fbx_scene.GetSrcObject(stack_object_type, i)
-            take_list.append(stack.GetName())
 
         try:
-            path = sys.argv[1]
-            path_new = convert(sys.argv[2], path)
-
+            pattern_list = sys.argv[2].replace('\'', '"')
+            dirname = os.path.dirname(message['path'])
+            basename = os.path.basename(message['path'])
+            message['path_new'] = os.path.join(dirname, convert(pattern_list, basename))
             for i in range(stack_count):
                 stack = fbx_scene.GetSrcObject(stack_object_type, i)
-                stack.SetName(convert(sys.argv[2], stack.GetName()))
+                stack.SetName(convert(pattern_list, stack.GetName()))
             fbx_format = fbx_manager.GetIOPluginRegistry().GetNativeWriterFormat()
-            FbxCommon.SaveScene(fbx_manager, fbx_scene, path_new, fbx_format, True)
-            print path
+            FbxCommon.SaveScene(fbx_manager, fbx_scene, message['path_new'], fbx_format, True)
+            os.remove(message['path'])
 
         except IndexError:
-            print(json.dumps(take_list))
-    else:
-        print(json.dumps(take_list))
+            message['takes'] = []
+            for i in range(stack_count):
+                stack = fbx_scene.GetSrcObject(stack_object_type, i)
+                message['takes'].append(stack.GetName())
+
+    print(json.dumps(message))
+
     sys.exit()
