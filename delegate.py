@@ -1,11 +1,10 @@
+# -*- coding: utf-8 -*-
+
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QLinearGradient, QColor, QGradient, QPen
 from PyQt5.QtWidgets import QStyledItemDelegate, QStyle
 
-
-file_convert = Qt.UserRole + 3
-item_height = Qt.UserRole + 4
-item_color = Qt.UserRole + 5
+from utils import *
 
 
 class FileItemDelegate(QStyledItemDelegate):
@@ -18,13 +17,13 @@ class FileItemDelegate(QStyledItemDelegate):
         name_rect = option.rect.adjusted(4, 0, -4, 0)
         item_rect = option.rect.adjusted(1, 1, -1, 0)
 
-        painter.fillRect(item_rect, QColor(240, 240, 240, 255))
+        painter.fillRect(item_rect, QColor(index.data(item_background)))
 
         if option.state & QStyle.State_Selected:
             g_selected = QLinearGradient(0, item_rect.y(), 0, item_rect.y() + item_rect.height())
             g_selected.setColorAt(0.0, QColor(100, 100, 100, 200))
-            g_selected.setColorAt(1.0 / item_rect.height(), QColor(100, 100, 100, 30))
-            g_selected.setColorAt(1.0 - 1.0 / item_rect.height(), QColor(100, 100, 100, 20))
+            g_selected.setColorAt(1.0 / item_rect.height(), QColor(100, 200, 255, 255))
+            g_selected.setColorAt(1.0 - 1.0 / item_rect.height(), QColor(100, 200, 255, 255))
             g_selected.setColorAt(1.0, QColor(255, 255, 255, 0))
             g_selected.setSpread(QGradient.ReflectSpread)
             painter.fillRect(item_rect, g_selected)

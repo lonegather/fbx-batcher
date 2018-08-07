@@ -1,26 +1,14 @@
+# -*- coding: utf-8 -*-
+
 import os
-import re
+import sys
+import json
 import xlrd
-from PyQt5.QtCore import QAbstractListModel, QModelIndex, Qt, pyqtSignal
+import subprocess
+from PyQt5.QtCore import pyqtSignal, QAbstractListModel, QModelIndex, Qt, QThread
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 
-import fbx
-import FbxCommon
-
-
-pattern_exp = Qt.UserRole + 1
-pattern_rpl = Qt.UserRole + 2
-file_convert = Qt.UserRole + 3
-item_height = Qt.UserRole + 4
-item_color = Qt.UserRole + 5
-
-basic_patterns = {
-    '(?i)_qte_': '_QTE_',
-    '(?i)_stp_': '_STP_',
-    '(?i)_fulb_': '_FulB_',
-    '(?i)_addfacial_': '_AddFacial_',
-    '^[a-z]|_[a-z]': lambda m: m.group(0).upper()
-}
+from utils import *
 
 
 class FileItem(QStandardItem):
@@ -28,15 +16,20 @@ class FileItem(QStandardItem):
     def __init__(self, text):
         self.path = text
         self.path_new = text
+        self.loaded = False
+        self.executed = False
         super(FileItem, self).__init__(os.path.basename(self.path))
+        self.setEditable(False)
 
-    def data(self, role=Qt.DisplayRole):
+    def data(self, role=None, *args, **kwargs):
         if role == file_convert:
             return os.path.basename(self.path_new)
         elif role == item_height:
             return 25
         elif role == item_color:
             return '#999' if self.path == self.path_new else '#00f'
+        elif role == item_background:
+            return '#ddd'
         else:
             return super(FileItem, self).data(role)
 
@@ -48,15 +41,18 @@ class TakeItem(QStandardItem):
 
     def __init__(self, text):
         super(TakeItem, self).__init__(text)
+        self.setEditable(False)
         self.new = text
 
-    def data(self, role=Qt.DisplayRole):
+    def data(self, role=None, *args, **kwargs):
         if role == file_convert:
             return self.new
         elif role == item_height:
             return 20
         elif role == item_color:
             return '#999' if self.text() == self.new else '#00f'
+        elif role == item_background:
+            return '#eee'
         else:
             return super(TakeItem, self).data(role)
 
@@ -110,15 +106,30 @@ class PatternListModel(QAbstractListModel):
 
         return True
 
+    def pattern_data(self):
+        patterns = {}
+        for i in range(self.rowCount()):
+            index = self.index(i)
+            exp = '(?i)%s' % self.data(index, pattern_exp)
+            rpl = self.data(index, pattern_rpl)
+            if exp not in patterns:
+                patterns[exp] = rpl
+        return json.dumps(patterns)
+
 
 class FileItemModel(QStandardItemModel):
 
-    progress = pyqtSignal(name='progress')
+    launched = pyqtSignal(int)
+    progress = pyqtSignal(int)
+    complete = pyqtSignal()
 
     def __init__(self, pattern_model, parent=None):
         super(FileItemModel, self).__init__(parent)
         self.pattern_model = pattern_model
         self.pattern_model.dataChanged.connect(self.on_data_changed)
+        self.file_thread = None
+        self.file_loaded = 0
+        self.exe_count = 0
 
     def columnCount(self, *_):
         return 1
@@ -134,6 +145,7 @@ class FileItemModel(QStandardItemModel):
         return ['text/uri-list']
 
     def dropMimeData(self, data, action, row, column, parent):
+        urls = []
         root = self.invisibleRootItem()
         for url in data.urls():
             file_path = url.toLocalFile()
@@ -148,45 +160,106 @@ class FileItemModel(QStandardItemModel):
             if duplicate:
                 continue
 
-            (fbx_manager, fbx_scene) = FbxCommon.InitializeSdkObjects()
-            status = FbxCommon.LoadScene(fbx_manager, fbx_scene, file_path)
-            if not status:
-                print("Failed to load %s" % file_path)
-                continue
+            urls.append(file_path)
+            root.appendRow(FileItem(file_path))
 
-            file_item = FileItem(file_path)
-            stack_class_id = fbx.FbxAnimStack.ClassId
-            stack_object_type = fbx.FbxCriteria.ObjectType(stack_class_id)
-            stack_count = fbx_scene.GetSrcObjectCount(stack_object_type)
-            for i in range(stack_count):
-                stack = fbx_scene.GetSrcObject(stack_object_type, i)
-                take_item = TakeItem(stack.GetName())
-                file_item.appendRow(take_item)
-            root.appendRow(file_item)
+        self.file_thread = FileThread(urls)
+        self.file_thread.progress.connect(self.on_progress)
+        self.file_thread.complete.connect(self.on_complete)
+        self.file_thread.start()
+
+        self.launched.emit(len(urls))
+        return True
+
+    def on_progress(self, file_loaded):
+        take_list = json.loads(file_loaded)
+        root = self.invisibleRootItem()
+        total = 0
+        for i in range(root.rowCount()):
+            item = root.child(i)
+            if item.path == take_list[0]:
+                for take in take_list[1:]:
+                    item.appendRow(TakeItem(take))
+                item.loaded = True
+            if item.loaded:
+                total += 1
 
         self.on_data_changed()
+        self.progress.emit(total - self.file_loaded)
 
-        return True
+    def on_execute_progress(self, path):
+        root = self.invisibleRootItem()
+        total = 0
+        for i in range(root.rowCount()):
+            item = root.child(i)
+            if item.path == path.replace('\n', ''):
+                item.executed = True
+            if item.executed:
+                total += 1
+
+        self.progress.emit(total)
+
+    def on_complete(self, *_):
+        root = self.invisibleRootItem()
+        self.file_loaded = root.rowCount()
+        self.complete.emit()
 
     def on_data_changed(self, *_):
         root = self.invisibleRootItem()
         for i in range(root.rowCount()):
             file_item = root.child(i)
-            file_item.apply(self.convert(file_item.text()))
+            file_item.apply(convert(self.pattern_model.pattern_data(), file_item.text()))
             for j in range(file_item.rowCount()):
                 take_item = file_item.child(j)
-                take_item.apply(self.convert(take_item.text()))
+                take_item.apply(convert(self.pattern_model.pattern_data(), take_item.text()))
 
         self.dataChanged.emit(QModelIndex(), QModelIndex())
 
-    def convert(self, text):
-        for i in range(self.pattern_model.rowCount()):
-            index = self.pattern_model.index(i)
-            exp = self.pattern_model.data(index, pattern_exp)
-            rpl = self.pattern_model.data(index, pattern_rpl)
-            text = re.sub(exp, rpl, text, flags=re.IGNORECASE)
+    def execute(self):
+        urls = []
+        root = self.invisibleRootItem()
 
-        for pattern in basic_patterns:
-            text = re.sub(pattern, basic_patterns[pattern], text)
+        for i in range(root.rowCount()):
+            file_item = root.child(i)
+            changed = False
+            if file_item.path == file_item.path_new:
+                for j in range(file_item.rowCount()):
+                    take_item = file_item.child(j)
+                    if take_item.text() != take_item.new:
+                        changed = True
+            else:
+                changed = True
+            if changed:
+                urls.append(root.child(i).path)
 
-        return text
+        self.file_thread = FileThread(urls, self.pattern_model.pattern_data())
+        self.file_thread.progress.connect(self.on_execute_progress)
+        self.file_thread.complete.connect(self.on_complete)
+        self.file_thread.start()
+
+        self.exe_count = len(urls)
+        self.launched.emit(self.exe_count)
+
+
+class FileThread(QThread):
+
+    progress = pyqtSignal(str)
+    complete = pyqtSignal()
+
+    def __init__(self, urls, patterns=None):
+        super(FileThread, self).__init__()
+        self.urls = urls
+        self.patterns = patterns
+
+    def run(self):
+        for url in self.urls:
+            exe = sys.executable.replace('\\', '/')
+            mdu = os.path.join(os.path.dirname(__file__), 'utils.py').replace('\\', '/')
+            cmd = '"{exe}" "{mdu}" "{url}"'.format(**locals())
+            cmd += ' "%s"' % self.patterns if self.patterns else ''
+            process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            msg, err = process.communicate()
+
+            self.progress.emit(msg)
+
+        self.complete.emit()
