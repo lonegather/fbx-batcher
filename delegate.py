@@ -7,6 +7,24 @@ from PyQt5.QtWidgets import QStyledItemDelegate, QStyle
 from utils import *
 
 
+class PatternDelegate(QStyledItemDelegate):
+    
+    def __init__(self, parent=None):
+        super(PatternDelegate, self).__init__(parent)
+
+    def paint(self, painter, option, index):
+        name_rect = option.rect.adjusted(4, 0, -4, 0)
+        item_rect = option.rect.adjusted(1, 1, -1, 0)
+
+        painter.fillRect(item_rect, QColor('#fe6'))
+        painter.save()
+
+        painter.setPen(QPen(QColor(0, 0, 0, 255)))
+        painter.drawText(name_rect, Qt.AlignHCenter, index.data())
+
+        painter.restore()
+
+
 class FileItemDelegate(QStyledItemDelegate):
     
     def __init__(self, role=Qt.DisplayRole, parent=None):

@@ -128,8 +128,12 @@ class FileItemModel(QStandardItemModel):
         self.pattern_model = pattern_model
         self.pattern_model.dataChanged.connect(self.on_data_changed)
         self.file_thread = None
+        self.auto_load = True
         self.file_loaded = 0
         self.exe_count = 0
+
+    def setAutoLoad(self, val):
+        self.auto_load = val
 
     def columnCount(self, *_):
         return 1
@@ -163,12 +167,13 @@ class FileItemModel(QStandardItemModel):
             urls.append(file_path)
             root.appendRow(FileItem(file_path))
 
-        self.file_thread = FileThread(urls)
-        self.file_thread.progress.connect(self.on_progress)
-        self.file_thread.complete.connect(self.on_complete)
-        self.file_thread.start()
+        if self.auto_load:
+            self.file_thread = FileThread(urls)
+            self.file_thread.progress.connect(self.on_progress)
+            self.file_thread.complete.connect(self.on_complete)
+            self.file_thread.start()
+            self.launched.emit(len(urls))
 
-        self.launched.emit(len(urls))
         return True
 
     def on_progress(self, message):
@@ -226,7 +231,7 @@ class FileItemModel(QStandardItemModel):
         i = 0
         while i < root.rowCount():
             file_item = root.child(i)
-            changed = False
+            changed = not self.auto_load
             if file_item.path == file_item.path_new:
                 for j in range(file_item.rowCount()):
                     take_item = file_item.child(j)

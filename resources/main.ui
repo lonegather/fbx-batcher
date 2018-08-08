@@ -22,31 +22,58 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <layout class="QGridLayout" name="gridLayout" rowstretch="1,2,0">
-      <item row="1" column="1">
+     <layout class="QGridLayout" name="gridLayout" rowstretch="1,0,3,0">
+      <item row="2" column="1">
        <widget class="QTreeView" name="tv_output"/>
-      </item>
-      <item row="1" column="0">
-       <widget class="QTreeView" name="tv_input"/>
       </item>
       <item row="0" column="0" colspan="2">
        <widget class="QListView" name="lv_pattern"/>
       </item>
-     </layout>
-    </item>
-    <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_3">
-      <item>
+      <item row="2" column="0">
+       <widget class="QTreeView" name="tv_input"/>
+      </item>
+      <item row="1" column="0" colspan="2">
        <widget class="QProgressBar" name="pb_progress">
         <property name="textVisible">
          <bool>false</bool>
         </property>
        </widget>
       </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0,0,0">
+      <item>
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>Output To:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="le_output"/>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btn_browse">
+        <property name="text">
+         <string>Browse</string>
+        </property>
+       </widget>
+      </item>
       <item>
        <widget class="QPushButton" name="btn_start">
         <property name="text">
-         <string>Start</string>
+         <string>Rename</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="cb_preview">
+        <property name="text">
+         <string>Preview Takes</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
         </property>
        </widget>
       </item>

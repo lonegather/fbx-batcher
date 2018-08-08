@@ -6,7 +6,7 @@ from widget import Ui_MainWindow
 
 from utils import *
 from model import PatternListModel, FileItemModel
-from delegate import FileItemDelegate
+from delegate import PatternDelegate, FileItemDelegate
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -19,6 +19,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         pattern_model = PatternListModel()
         file_model = FileItemModel(pattern_model)
 
+        self.lv_pattern.setItemDelegate(PatternDelegate())
         self.lv_pattern.setAcceptDrops(True)
         self.lv_pattern.setDropIndicatorShown(True)
         self.lv_pattern.setModel(pattern_model)
@@ -42,12 +43,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         file_model.dataChanged.connect(self.on_data_changed)
 
         self.btn_start.clicked.connect(file_model.execute)
+        self.cb_preview.toggled.connect(lambda val: file_model.setAutoLoad(val))
 
     def on_launched(self, val):
         self.total = val
         self.pb_progress.setMaximum(0)
         self.pb_progress.setValue(0)
         self.btn_start.setEnabled(False)
+        self.cb_preview.setEnabled(False)
 
     def on_progress(self, val):
         self.pb_progress.setMaximum(self.total)
@@ -55,6 +58,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def on_complete(self):
         self.btn_start.setEnabled(True)
+        self.cb_preview.setEnabled(True)
         self.pb_progress.setMaximum(1)
         self.pb_progress.setValue(1)
 
