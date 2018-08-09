@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 
+import re
+import os
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QAbstractItemView
-from widget import Ui_MainWindow
+from PySide.QtGui import QApplication, QMainWindow, QAbstractItemView, QFileDialog
+from P4 import P4, P4Exception
 
+from widget import Ui_MainWindow
 from utils import *
 from model import PatternListModel, FileItemModel
 from delegate import PatternDelegate, FileItemDelegate
@@ -15,6 +18,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         super(MainWindow, self).__init__(parent)
         self.setupUi(self)
         self.total = 0
+
+        p4 = P4()
+        try:
+            p4.connect()
+            self.le_output.setText(p4.run_info()[0]['clientRoot'])
+        except P4Exception:
+            for e in p4.errors:
+                print(e)
 
         pattern_model = PatternListModel()
         file_model = FileItemModel(pattern_model)
@@ -42,7 +53,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         file_model.complete.connect(self.on_complete)
         file_model.dataChanged.connect(self.on_data_changed)
 
-        self.btn_start.clicked.connect(file_model.execute)
+        self.btn_start.clicked.connect(self.on_rename)
+        self.btn_browse.clicked.connect(self.on_browse)
         self.cb_preview.toggled.connect(lambda val: file_model.setAutoLoad(val))
 
     def on_launched(self, val):
@@ -65,6 +77,23 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def on_data_changed(self, *_):
         self.tv_input.expandAll()
         self.tv_output.expandAll()
+
+    def on_browse(self, *_):
+        dialog = QFileDialog(self)
+        dialog.setFileMode(QFileDialog.DirectoryOnly)
+        dialog.setViewMode(QFileDialog.Detail)
+        dialog.setDirectory(self.le_output.text())
+
+        if dialog.exec_():
+            self.le_output.setText(dialog.selectedFiles()[0])
+
+    def on_rename(self, *_):
+        output_path = self.le_output.text()
+        skeleton = self.le_skeleton.text()
+        if os.path.isdir(output_path):
+            self.tv_input.model().execute(skeleton, output_path)
+        else:
+            self.statusbar.showMessage('Invalid Output Path', 3000)
 
 
 if __name__ == "__main__":

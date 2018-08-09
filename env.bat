@@ -1,4 +1,4 @@
 @echo off
 
-set "PATH=C:/Python27;C:/Python27/Scripts;C:/Python27/Lib/site-packages/PyQt5;%PATH%"
-set "PYTHONPATH=%~dp0libs;"
+set "PATH=%EPAPATH%addons/Python/Python27;%PATH%"
+set "PYTHONPATH=%EPAPATH%addons/Perforce/Python27/x64;%~dp0libs"

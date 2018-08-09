@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QLinearGradient, QColor, QGradient, QPen
-from PyQt5.QtWidgets import QStyledItemDelegate, QStyle
+from PySide.QtCore import Qt, QSize
+from PySide.QtGui import QStyledItemDelegate, QStyle, QLinearGradient, QColor, QGradient, QPen
 
 from utils import *
 

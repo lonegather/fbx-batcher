@@ -5,8 +5,8 @@ import sys
 import json
 import xlrd
 import subprocess
-from PyQt5.QtCore import pyqtSignal, QAbstractListModel, QModelIndex, Qt, QThread
-from PyQt5.QtGui import QStandardItemModel, QStandardItem
+from PySide.QtCore import Signal, QAbstractListModel, QModelIndex, Qt, QThread
+from PySide.QtGui import QStandardItemModel, QStandardItem
 
 from utils import *
 
@@ -14,11 +14,10 @@ from utils import *
 class FileItem(QStandardItem):
 
     def __init__(self, text):
+        super(FileItem, self).__init__(os.path.basename(text))
         self.path = text
         self.path_new = text
         self.loaded = False
-        self.executed = False
-        super(FileItem, self).__init__(os.path.basename(self.path))
         self.setEditable(False)
 
     def data(self, role=None, *args, **kwargs):
@@ -119,9 +118,9 @@ class PatternListModel(QAbstractListModel):
 
 class FileItemModel(QStandardItemModel):
 
-    launched = pyqtSignal(int)
-    progress = pyqtSignal(int)
-    complete = pyqtSignal()
+    launched = Signal(int)
+    progress = Signal(int)
+    complete = Signal()
 
     def __init__(self, pattern_model, parent=None):
         super(FileItemModel, self).__init__(parent)
@@ -173,12 +172,15 @@ class FileItemModel(QStandardItemModel):
             self.file_thread.complete.connect(self.on_complete)
             self.file_thread.start()
             self.launched.emit(len(urls))
+        else:
+            self.on_data_changed()
 
         return True
 
     def on_progress(self, message):
         message = json.loads(message)
         root = self.invisibleRootItem()
+
         total = 0
         for i in range(root.rowCount()):
             item = root.child(i)
@@ -188,24 +190,20 @@ class FileItemModel(QStandardItemModel):
                 item.loaded = True
             if item.loaded:
                 total += 1
-
         self.on_data_changed()
+
         self.progress.emit(total - self.file_loaded)
 
     def on_execute_progress(self, message):
         message = json.loads(message)
         root = self.invisibleRootItem()
-        total = 0
+
         for i in range(root.rowCount()):
-            item = root.child(i)
-            if item.path == message['path'].replace('\n', ''):
-                item.executed = True
-            if item.executed:
+            if root.child(i).path == message['path'].replace('\n', ''):
                 root.removeRow(i)
-                total += 1
                 break
 
-        self.progress.emit(total)
+        self.progress.emit(self.exe_count - root.rowCount())
 
     def on_complete(self, *_):
         root = self.invisibleRootItem()
@@ -224,28 +222,14 @@ class FileItemModel(QStandardItemModel):
 
         self.dataChanged.emit(QModelIndex(), QModelIndex())
 
-    def execute(self):
+    def execute(self, skeleton, output_path):
         urls = []
         root = self.invisibleRootItem()
 
-        i = 0
-        while i < root.rowCount():
-            file_item = root.child(i)
-            changed = not self.auto_load
-            if file_item.path == file_item.path_new:
-                for j in range(file_item.rowCount()):
-                    take_item = file_item.child(j)
-                    if take_item.text() != take_item.new:
-                        changed = True
-            else:
-                changed = True
-            if changed:
-                urls.append(root.child(i).path)
-                i += 1
-            else:
-                root.removeRow(i)
+        for i in range(root.rowCount()):
+            urls.append(root.child(i).path)
 
-        self.file_thread = FileThread(urls, self.pattern_model.pattern_data())
+        self.file_thread = FileThread(urls, skeleton, output_path, self.pattern_model.pattern_data())
         self.file_thread.progress.connect(self.on_execute_progress)
         self.file_thread.complete.connect(self.on_complete)
         self.file_thread.start()
@@ -256,12 +240,14 @@ class FileItemModel(QStandardItemModel):
 
 class FileThread(QThread):
 
-    progress = pyqtSignal(str)
-    complete = pyqtSignal()
+    progress = Signal(str)
+    complete = Signal()
 
-    def __init__(self, urls, patterns=None):
+    def __init__(self, urls, skeleton=None, output_path=None, patterns=None):
         super(FileThread, self).__init__()
         self.urls = urls
+        self.skeleton = skeleton
+        self.output_path = output_path
         self.patterns = patterns
 
     def run(self):
@@ -269,6 +255,8 @@ class FileThread(QThread):
             exe = sys.executable.replace('\\', '/')
             mdu = os.path.join(os.path.dirname(__file__), 'utils.py').replace('\\', '/')
             cmd = '"{exe}" "{mdu}" "{url}"'.format(**locals())
+            cmd += ' "%s"' % self.skeleton.replace('/', '\\') if self.skeleton else ''
+            cmd += ' "%s"' % self.output_path.replace('\\', '/') if self.output_path else ''
             cmd += ' "%s"' % self.patterns.replace('"', '\'') if self.patterns else ''
             process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             msg, err = process.communicate()
