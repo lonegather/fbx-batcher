@@ -38,10 +38,6 @@ basic_patterns = {
     '(?i)^[a-z]|_[a-z]': lambda m: m.group(0).upper()
 }
 
-node_patterns = {
-    ': "[a-z]': lambda m: m.group(0).upper()
-}
-
 
 def convert(patterns, text, node=False):
     patterns = json.loads(patterns)
@@ -57,7 +53,7 @@ def convert(patterns, text, node=False):
     return text
 
 
-def execute(path, skeleton=None, path_new=None, patterns=None):
+def execute(path, path_new=None, patterns=None):
     message = {'path': path, 'path_new': path_new, 'takes': []}
     os.chmod(path, stat.S_IWRITE)
     (fbx_manager, fbx_scene) = FbxCommon.InitializeSdkObjects()
@@ -83,22 +79,6 @@ def execute(path, skeleton=None, path_new=None, patterns=None):
             FbxCommon.SaveScene(fbx_manager, fbx_scene, path_new, fbx_format, True)
             # if path.lower() != message['path_new'].lower():
             #     os.remove(path)
-
-            node_path = re.sub('(?i)fbx$', 'nodes', path)
-            node_path_new = re.sub('(?i)fbx$', 'nodes', path_new)
-            if os.path.isfile(node_path):
-                os.chmod(node_path, stat.S_IWRITE)
-                with open(node_path) as node:
-                    node_data = json.dumps(json.load(node))
-                skeleton = skeleton.replace('\\', '\\\\\\\\')
-                name_replacer = lambda m: convert(patterns, m.group(0), True)
-                node_data_new = re.sub('"name": "(.*?)"', name_replacer, node_data)
-                node_data_new = re.sub('"take": "(.*?)"', name_replacer, node_data_new)
-                node_data_new = re.sub('"path": "(.*?)"', '"path": "%s"' % skeleton, node_data_new)
-                node_data_new = json.loads(node_data_new)
-                # os.remove(node_path)
-                with open(node_path_new, 'w') as node:
-                    json.dump(node_data_new, node, indent=4, sort_keys=True)
 
     fbm_path = re.sub('(?i)fbx$', 'fbm', path)
     if os.path.isdir(fbm_path):
