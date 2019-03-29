@@ -222,14 +222,14 @@ class FileItemModel(QStandardItemModel):
 
         self.dataChanged.emit(QModelIndex(), QModelIndex())
 
-    def execute(self, skeleton, output_path):
+    def execute(self, output_path):
         urls = []
         root = self.invisibleRootItem()
 
         for i in range(root.rowCount()):
             urls.append(root.child(i).path)
 
-        self.file_thread = FileThread(urls, skeleton, output_path, self.pattern_model.pattern_data())
+        self.file_thread = FileThread(urls, output_path, self.pattern_model.pattern_data())
         self.file_thread.progress.connect(self.on_execute_progress)
         self.file_thread.complete.connect(self.on_complete)
         self.file_thread.start()
@@ -243,10 +243,9 @@ class FileThread(QThread):
     progress = Signal(str)
     complete = Signal()
 
-    def __init__(self, urls, skeleton=None, output_path=None, patterns=None):
+    def __init__(self, urls, output_path=None, patterns=None):
         super(FileThread, self).__init__()
         self.urls = urls
-        self.skeleton = skeleton
         self.output_path = output_path
         self.patterns = patterns
 
@@ -255,7 +254,6 @@ class FileThread(QThread):
             exe = sys.executable.replace('\\', '/')
             mdu = os.path.join(os.path.dirname(__file__), 'utils.py').replace('\\', '/')
             cmd = '"{exe}" "{mdu}" "{url}"'.format(**locals())
-            cmd += ' "%s"' % self.skeleton.replace('/', '\\') if self.skeleton else ''
             cmd += ' "%s"' % self.output_path.replace('\\', '/') if self.output_path else ''
             cmd += ' "%s"' % self.patterns.replace('"', '\'') if self.patterns else ''
             process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)

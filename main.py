@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import re
 import os
 import sys
 from PySide.QtGui import QApplication, QMainWindow, QAbstractItemView, QFileDialog
-from P4 import P4, P4Exception
 
 from widget import Ui_MainWindow
 from utils import *
@@ -18,14 +16,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         super(MainWindow, self).__init__(parent)
         self.setupUi(self)
         self.total = 0
-
-        p4 = P4()
-        try:
-            p4.connect()
-            self.le_output.setText(p4.run_info()[0]['clientRoot'])
-        except P4Exception:
-            for e in p4.errors:
-                print(e)
 
         pattern_model = PatternListModel()
         file_model = FileItemModel(pattern_model)
@@ -89,9 +79,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def on_rename(self, *_):
         output_path = self.le_output.text()
-        skeleton = self.le_skeleton.text()
         if os.path.isdir(output_path):
-            self.tv_input.model().execute(skeleton, output_path)
+            self.tv_input.model().execute(output_path)
         else:
             self.statusbar.showMessage('Invalid Output Path', 3000)
 
